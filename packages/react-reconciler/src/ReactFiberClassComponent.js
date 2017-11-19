@@ -221,7 +221,16 @@ export default function(
           );
         }
       }
-
+      const noSetStatesFromProps = !(instance.state === parent.props);
+      warning(
+        noSetStatesFromProps,
+        // console.log('instance.state', instance.state) +
+        // console.log('workInProgress', type) +
+        'this.state should not be set to this.props referentially. When ' +
+          'implementing the constructor for a React.Component subclass, you ' +
+          'should call super(props) before any other statement. To initialize ' +
+          'state locally, just assign an object to this.state in the constructor.'
+      );
       const noGetInitialStateOnES6 =
         !instance.getInitialState ||
         instance.getInitialState.isReactClassApproved ||

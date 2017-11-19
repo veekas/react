@@ -197,7 +197,7 @@ describe('ReactComponentLifeCycle', () => {
     }).not.toThrow();
   });
 
-  it('warn if setting this.state to this.props referentially', () => {
+  it('warns if setting this.state to this.props referentially', () => {
     spyOn(console, 'error');
 
     class StatefulComponent extends React.Component {
@@ -213,11 +213,10 @@ describe('ReactComponentLifeCycle', () => {
     ReactTestUtils.renderIntoDocument(<StatefulComponent />);
     expectDev(console.error.calls.count()).toBe(1);
     expectDev(console.error.calls.argsFor(0)[0]).toContain(
-      'Warning: ' +
       'this.state should not be set to this.props referentially. When ' +
-      'implementing the constructor for a React.Component subclass, you' +
-      'should call super(props) before any other statement. To initialize' +
-      'state locally, just assign an object to this.state in the constructor.'
+        'implementing the constructor for a React.Component subclass, you ' +
+        'should call super(props) before any other statement. To initialize ' +
+        'state locally, just assign an object to this.state in the constructor.'
     );
 
   });
