@@ -197,7 +197,7 @@ describe('ReactComponentLifeCycle', () => {
     }).not.toThrow();
   });
 
-  it('warns if setting this.state to this.props referentially', () => {
+  it("warns if setting 'this.state = props'", () => {
     spyOn(console, 'error');
 
     class StatefulComponent extends React.Component {
@@ -213,10 +213,13 @@ describe('ReactComponentLifeCycle', () => {
     ReactTestUtils.renderIntoDocument(<StatefulComponent />);
     expectDev(console.error.calls.count()).toBe(1);
     expectDev(console.error.calls.argsFor(0)[0]).toContain(
-      'this.state should not be set to this.props referentially. When ' +
-        'implementing the constructor for a React.Component subclass, you ' +
-        'should call super(props) before any other statement. To initialize ' +
-        'state locally, just assign an object to this.state in the constructor.',
+      'It looks like the StatefulComponent component contains a line like this in its constructor: ' +
+        'this.state = props; ' +
+        "This is not recommended because any further updates to props won't be reflected in " +
+        "the state. In most cases, you don't need to keep state and props in sync. Instead, " +
+        'use the props directly. If you need to calculate something from the props, do it ' +
+        'during the rendering. If you need to share the state between several components, ' +
+        'move it to their closest common ancestor and pass it down as props to them.',
     );
   });
 
