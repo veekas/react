@@ -221,6 +221,7 @@ export default function(
           );
         }
       }
+
       const noGetInitialStateOnES6 =
         !instance.getInitialState ||
         instance.getInitialState.isReactClassApproved ||
