@@ -216,9 +216,8 @@ describe('ReactComponentLifeCycle', () => {
       'this.state should not be set to this.props referentially. When ' +
         'implementing the constructor for a React.Component subclass, you ' +
         'should call super(props) before any other statement. To initialize ' +
-        'state locally, just assign an object to this.state in the constructor.'
+        'state locally, just assign an object to this.state in the constructor.',
     );
-
   });
 
   it('should not allow update state inside of getInitialState', () => {
