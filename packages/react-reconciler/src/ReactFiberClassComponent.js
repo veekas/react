@@ -465,9 +465,8 @@ export default function(
     instance.refs = emptyObject;
     instance.context = getMaskedContext(workInProgress, unmaskedContext);
 
-    const noSetStatesFromProps = !(instance.state === instance.props);
     warning(
-      noSetStatesFromProps,
+      instance.state !== instance.props,
       'It looks like the %s component contains a line like this in its constructor: ' +
         'this.state = props; ' +
         "This is not recommended because any further updates to props won't be reflected in " +
