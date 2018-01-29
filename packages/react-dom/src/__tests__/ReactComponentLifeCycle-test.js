@@ -198,7 +198,7 @@ describe('ReactComponentLifeCycle', () => {
   });
 
   it("warns if setting 'this.state = props'", () => {
-    spyOn(console, 'error');
+    spyOnDev(console, 'error');
 
     class StatefulComponent extends React.Component {
       constructor(props, context) {
@@ -211,8 +211,8 @@ describe('ReactComponentLifeCycle', () => {
     }
 
     ReactTestUtils.renderIntoDocument(<StatefulComponent />);
-    expectDev(console.error.calls.count()).toBe(1);
-    expectDev(console.error.calls.argsFor(0)[0]).toContain(
+    expect(console.error.calls.count()).toBe(1);
+    expect(console.error.calls.argsFor(0)[0]).toContain(
       'It looks like the StatefulComponent component contains a line like this ' +
         'in its constructor:\n\n' +
         'this.state = props;\n\n' +
