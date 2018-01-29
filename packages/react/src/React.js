@@ -7,9 +7,9 @@
 
 import assign from 'object-assign';
 import ReactVersion from 'shared/ReactVersion';
-import {enableReactFragment} from 'shared/ReactFeatureFlags';
+import {REACT_FRAGMENT_TYPE, REACT_STRICT_MODE_TYPE} from 'shared/ReactSymbols';
 
-import {Component, PureComponent, AsyncComponent} from './ReactBaseClasses';
+import {AsyncComponent, Component, PureComponent} from './ReactBaseClasses';
 import {forEach, map, count, toArray, only} from './ReactChildren';
 import ReactCurrentOwner from './ReactCurrentOwner';
 import {
@@ -18,20 +18,16 @@ import {
   cloneElement,
   isValidElement,
 } from './ReactElement';
+import {createContext} from 'shared/ReactContext';
 import {
   createElementWithValidation,
   createFactoryWithValidation,
   cloneElementWithValidation,
 } from './ReactElementValidator';
 import ReactDebugCurrentFrame from './ReactDebugCurrentFrame';
+import {enableNewContextAPI} from 'shared/ReactFeatureFlags';
 
-const REACT_FRAGMENT_TYPE =
-  (typeof Symbol === 'function' &&
-    Symbol.for &&
-    Symbol.for('react.fragment')) ||
-  0xeacb;
-
-var React = {
+const React = {
   Children: {
     map,
     forEach,
@@ -43,6 +39,9 @@ var React = {
   Component,
   PureComponent,
   unstable_AsyncComponent: AsyncComponent,
+
+  Fragment: REACT_FRAGMENT_TYPE,
+  StrictMode: REACT_STRICT_MODE_TYPE,
 
   createElement: __DEV__ ? createElementWithValidation : createElement,
   cloneElement: __DEV__ ? cloneElementWithValidation : cloneElement,
@@ -58,8 +57,8 @@ var React = {
   },
 };
 
-if (enableReactFragment) {
-  React.Fragment = REACT_FRAGMENT_TYPE;
+if (enableNewContextAPI) {
+  React.unstable_createContext = createContext;
 }
 
 if (__DEV__) {

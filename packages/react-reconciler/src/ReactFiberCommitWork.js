@@ -31,7 +31,11 @@ import {commitCallbacks} from './ReactFiberUpdateQueue';
 import {onCommitUnmount} from './ReactFiberDevToolsHook';
 import {startPhaseTimer, stopPhaseTimer} from './ReactDebugFiberPerf';
 
-var {invokeGuardedCallback, hasCaughtError, clearCaughtError} = ReactErrorUtils;
+const {
+  invokeGuardedCallback,
+  hasCaughtError,
+  clearCaughtError,
+} = ReactErrorUtils;
 
 export default function<T, P, I, TI, HI, PI, C, CC, CX, PL>(
   config: HostConfig<T, P, I, TI, HI, PI, C, CC, CX, PL>,
@@ -39,7 +43,7 @@ export default function<T, P, I, TI, HI, PI, C, CC, CX, PL>(
 ) {
   const {getPublicInstance, mutation, persistence} = config;
 
-  var callComponentWillUnmountWithTimer = function(current, instance) {
+  const callComponentWillUnmountWithTimer = function(current, instance) {
     startPhaseTimer(current, 'componentWillUnmount');
     instance.props = current.memoizedProps;
     instance.state = current.memoizedState;
@@ -119,8 +123,17 @@ export default function<T, P, I, TI, HI, PI, C, CC, CX, PL>(
       case HostRoot: {
         const updateQueue = finishedWork.updateQueue;
         if (updateQueue !== null) {
-          const instance =
-            finishedWork.child !== null ? finishedWork.child.stateNode : null;
+          let instance = null;
+          if (finishedWork.child !== null) {
+            switch (finishedWork.child.tag) {
+              case HostComponent:
+                instance = getPublicInstance(finishedWork.child.stateNode);
+                break;
+              case ClassComponent:
+                instance = finishedWork.child.stateNode;
+                break;
+            }
+          }
           commitCallbacks(updateQueue, instance);
         }
         return;
@@ -267,11 +280,13 @@ export default function<T, P, I, TI, HI, PI, C, CC, CX, PL>(
     }
   }
 
+  let emptyPortalContainer;
+
   if (!mutation) {
     let commitContainer;
     if (persistence) {
       const {replaceContainerChildren, createContainerChildSet} = persistence;
-      var emptyPortalContainer = function(current: Fiber) {
+      emptyPortalContainer = function(current: Fiber) {
         const portal: {containerInfo: C, pendingChildren: CC} =
           current.stateNode;
         const {containerInfo} = portal;
