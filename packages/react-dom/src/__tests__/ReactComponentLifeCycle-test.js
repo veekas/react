@@ -220,7 +220,7 @@ describe('ReactComponentLifeCycle', () => {
         'props in sync. Instead, use the props directly. If you need to calculate ' +
         'something from the props, do it during the rendering. If you need to ' +
         'share the state between several components, move it to their closest ' +
-        'common ancestor and pass it down as props to them.'
+        'common ancestor and pass it down as props to them.',
     ]);
   });
 
