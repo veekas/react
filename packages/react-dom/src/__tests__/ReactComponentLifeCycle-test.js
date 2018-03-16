@@ -198,7 +198,6 @@ describe('ReactComponentLifeCycle', () => {
   });
 
   it("warns if setting 'this.state = props'", () => {
-    spyOnDev(console, 'error');
 
     class StatefulComponent extends React.Component {
       constructor(props, context) {
@@ -210,9 +209,9 @@ describe('ReactComponentLifeCycle', () => {
       }
     }
 
-    ReactTestUtils.renderIntoDocument(<StatefulComponent />);
-    expect(console.error.calls.count()).toBe(1);
-    expect(console.error.calls.argsFor(0)[0]).toContain(
+    expect(() => {
+      ReactTestUtils.renderIntoDocument(<StatefulComponent />);
+    }).toWarnDev([
       'It looks like the StatefulComponent component contains a line like this ' +
         'in its constructor:\n\n' +
         'this.state = props;\n\n' +
@@ -221,8 +220,8 @@ describe('ReactComponentLifeCycle', () => {
         'props in sync. Instead, use the props directly. If you need to calculate ' +
         'something from the props, do it during the rendering. If you need to ' +
         'share the state between several components, move it to their closest ' +
-        'common ancestor and pass it down as props to them.',
-    );
+        'common ancestor and pass it down as props to them.'
+    ]);
   });
 
   it('should not allow update state inside of getInitialState', () => {
