@@ -634,17 +634,6 @@ export default function(
       getComponentName(workInProgress) || 'Unknown',
     );
 
-    if (workInProgress.type != null && workInProgress.type.prototype != null) {
-      const prototype = workInProgress.type.prototype;
-
-      if (enableAsyncSubtreeAPI) {
-        if (prototype.unstable_isAsyncReactComponent === true) {
-          workInProgress.internalContextTag |= AsyncUpdates;
-          workInProgress.internalContextTag |= StrictMode;
-        }
-      }
-    }
-
     if (__DEV__) {
       if (workInProgress.mode & StrictMode) {
         ReactStrictModeWarnings.recordUnsafeLifecycleWarnings(
