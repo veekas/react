@@ -198,7 +198,6 @@ describe('ReactComponentLifeCycle', () => {
   });
 
   it("warns if setting 'this.state = props'", () => {
-
     class StatefulComponent extends React.Component {
       constructor(props, context) {
         super(props, context);
