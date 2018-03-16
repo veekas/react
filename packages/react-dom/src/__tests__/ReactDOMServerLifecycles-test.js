@@ -33,7 +33,7 @@ describe('ReactDOMServerLifecycles', () => {
     resetModules();
   });
 
-  it('should invoke the correct lifecycle hooks', () => {
+  it('should invoke the correct legacy lifecycle hooks', () => {
     const log = [];
 
     class Outer extends React.Component {
@@ -63,6 +63,59 @@ describe('ReactDOMServerLifecycles', () => {
       'inner componentWillMount',
       'inner render',
     ]);
+  });
+
+  it('should invoke the correct new lifecycle hooks', () => {
+    const log = [];
+
+    class Outer extends React.Component {
+      state = {};
+      static getDerivedStateFromProps() {
+        log.push('outer getDerivedStateFromProps');
+        return null;
+      }
+      render() {
+        log.push('outer render');
+        return <Inner />;
+      }
+    }
+
+    class Inner extends React.Component {
+      state = {};
+      static getDerivedStateFromProps() {
+        log.push('inner getDerivedStateFromProps');
+        return null;
+      }
+      render() {
+        log.push('inner render');
+        return null;
+      }
+    }
+
+    ReactDOMServer.renderToString(<Outer />);
+    expect(log).toEqual([
+      'outer getDerivedStateFromProps',
+      'outer render',
+      'inner getDerivedStateFromProps',
+      'inner render',
+    ]);
+  });
+
+  it('should not invoke unsafe cWM if static gDSFP is present', () => {
+    class Component extends React.Component {
+      state = {};
+      static getDerivedStateFromProps() {
+        return null;
+      }
+      UNSAFE_componentWillMount() {
+        throw Error('unexpected');
+      }
+      render() {
+        return null;
+      }
+    }
+
+    ReactDOMServer.renderToString(<Component />);
   });
 
   it('should update instance.state with value returned from getDerivedStateFromProps', () => {
@@ -153,5 +206,58 @@ describe('ReactDOMServerLifecycles', () => {
 
     // De-duped
     ReactDOMServer.renderToString(<Component />);
+  });
+
+  it('should invoke both deprecated and new lifecycles if both are present', () => {
+    const log = [];
+
+    class Component extends React.Component {
+      componentWillMount() {
+        log.push('componentWillMount');
+      }
+      UNSAFE_componentWillMount() {
+        log.push('UNSAFE_componentWillMount');
+      }
+      render() {
+        return null;
+      }
+    }
+
+    ReactDOMServer.renderToString(<Component />);
+    expect(log).toEqual(['componentWillMount', 'UNSAFE_componentWillMount']);
+  });
+
+  it('tracks state updates across components', () => {
+    class Outer extends React.Component {
+      UNSAFE_componentWillMount() {
+        this.setState({x: 1});
+      }
+      render() {
+        return <Inner updateParent={this.updateParent}>{this.state.x}</Inner>;
+      }
+      updateParent = () => {
+        this.setState({x: 3});
+      };
+    }
+    class Inner extends React.Component {
+      UNSAFE_componentWillMount() {
+        this.setState({x: 2});
+        this.props.updateParent();
+      }
+      render() {
+        return <div>{this.props.children + '-' + this.state.x}</div>;
+      }
+    }
+    expect(() => {
+      // Shouldn't be 1-3.
+      expect(ReactDOMServer.renderToStaticMarkup(<Outer />)).toBe(
+        '<div>1-2</div>',
+      );
+    }).toWarnDev(
+      'Warning: setState(...): Can only update a mounting component. This ' +
+        'usually means you called setState() outside componentWillMount() on ' +
+        'the server. This is a no-op.\n\n' +
+        'Please check the code for the Outer component.',
+    );
   });
 });

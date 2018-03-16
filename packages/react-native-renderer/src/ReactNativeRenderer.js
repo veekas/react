@@ -15,7 +15,6 @@ import './ReactNativeInjection';
 import * as ReactPortal from 'shared/ReactPortal';
 import * as ReactGenericBatching from 'events/ReactGenericBatching';
 import TouchHistoryMath from 'events/TouchHistoryMath';
-import * as ReactGlobalSharedState from 'shared/ReactGlobalSharedState';
 import ReactVersion from 'shared/ReactVersion';
 // Module provided by RN:
 import UIManager from 'UIManager';
@@ -34,9 +33,7 @@ import takeSnapshot from './takeSnapshot';
 
 injectFindHostInstance(ReactNativeFiberRenderer.findHostInstance);
 
-ReactGenericBatching.injection.injectFiberBatchedUpdates(
-  ReactNativeFiberRenderer.batchedUpdates,
-);
+ReactGenericBatching.injection.injectRenderer(ReactNativeFiberRenderer);
 
 const roots = new Map();
 
@@ -97,8 +94,7 @@ const ReactNativeRenderer: ReactNativeType = {
     NativeMethodsMixin,
     // Used by react-native-github/Libraries/ components
     ReactNativeBridgeEventPlugin, // requireNativeComponent
-    ReactGlobalSharedState, // Systrace
-    ReactNativeComponentTree, // InspectorUtils, ScrollResponder
+    ReactNativeComponentTree, // ScrollResponder
     ReactNativePropRegistry, // flattenStyle, Stylesheet
     TouchHistoryMath, // PanResponder
     createReactNativeComponentClass, // RCTText, RCTView, ReactNativeART

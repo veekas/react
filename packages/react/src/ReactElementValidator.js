@@ -19,6 +19,10 @@ import {
   getIteratorFn,
   REACT_FRAGMENT_TYPE,
   REACT_STRICT_MODE_TYPE,
+  REACT_ASYNC_MODE_TYPE,
+  REACT_PROVIDER_TYPE,
+  REACT_CONTEXT_TYPE,
+  REACT_FORWARD_REF_TYPE,
 } from 'shared/ReactSymbols';
 import checkPropTypes from 'prop-types/checkPropTypes';
 import warning from 'fbjs/lib/warning';
@@ -257,7 +261,9 @@ function validatePropTypes(element) {
 function validateFragmentProps(fragment) {
   currentlyValidatingElement = fragment;
 
-  for (const key of Object.keys(fragment.props)) {
+  const keys = Object.keys(fragment.props);
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
     if (!VALID_FRAGMENT_PROPS.has(key)) {
       warning(
         false,
@@ -287,7 +293,13 @@ export function createElementWithValidation(type, props, children) {
     typeof type === 'function' ||
     // Note: its typeof might be other than 'symbol' or 'number' if it's a polyfill.
     type === REACT_FRAGMENT_TYPE ||
-    type === REACT_STRICT_MODE_TYPE;
+    type === REACT_ASYNC_MODE_TYPE ||
+    type === REACT_STRICT_MODE_TYPE ||
+    (typeof type === 'object' &&
+      type !== null &&
+      (type.$$typeof === REACT_PROVIDER_TYPE ||
+        type.$$typeof === REACT_CONTEXT_TYPE ||
+        type.$$typeof === REACT_FORWARD_REF_TYPE));
 
   // We warn in this case but don't throw. We expect the element creation to
   // succeed and there will likely be errors in render.

@@ -24,6 +24,10 @@ describe('ReactComponentLifeCycle', () => {
     ReactDOM = require('react-dom');
   });
 
+  afterEach(() => {
+    jest.resetModules();
+  });
+
   // TODO (RFC #6) Merge this back into ReactComponentLifeCycles-test once
   // the 'warnAboutDeprecatedLifecycles' feature flag has been removed.
   it('warns about deprecated unsafe lifecycles', function() {
@@ -37,7 +41,9 @@ describe('ReactComponentLifeCycle', () => {
     }
 
     const container = document.createElement('div');
-    expect(() => ReactDOM.render(<MyComponent x={1} />, container)).toWarnDev([
+    expect(() =>
+      ReactDOM.render(<MyComponent x={1} />, container),
+    ).toLowPriorityWarnDev([
       'componentWillMount is deprecated and will be removed in the next major version. ' +
         'Use componentDidMount instead. As a temporary workaround, ' +
         'you can rename to UNSAFE_componentWillMount.' +
@@ -54,5 +60,50 @@ describe('ReactComponentLifeCycle', () => {
     // Dedupe check (update and instantiate new
     ReactDOM.render(<MyComponent x={2} />, container);
     ReactDOM.render(<MyComponent key="new" x={1} />, container);
+  });
+
+  describe('react-lifecycles-compat', () => {
+    const polyfill = require('react-lifecycles-compat');
+
+    it('should not warn about deprecated cWM/cWRP for polyfilled components', () => {
+      class PolyfilledComponent extends React.Component {
+        state = {};
+        static getDerivedStateFromProps() {
+          return null;
+        }
+        render() {
+          return null;
+        }
+      }
+
+      polyfill(PolyfilledComponent);
+
+      const container = document.createElement('div');
+      ReactDOM.render(<PolyfilledComponent />, container);
+    });
+
+    it('should not warn about unsafe lifecycles within "strict" tree for polyfilled components', () => {
+      const {StrictMode} = React;
+
+      class PolyfilledComponent extends React.Component {
+        state = {};
+        static getDerivedStateFromProps() {
+          return null;
+        }
+        render() {
+          return null;
+        }
+      }
+
+      polyfill(PolyfilledComponent);
+
+      const container = document.createElement('div');
+      ReactDOM.render(
+        <StrictMode>
+          <PolyfilledComponent />
+        </StrictMode>,
+        container,
+      );
+    });
   });
 });

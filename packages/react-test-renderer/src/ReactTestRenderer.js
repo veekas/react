@@ -19,8 +19,12 @@ import {
   FunctionalComponent,
   ClassComponent,
   HostComponent,
+  HostPortal,
   HostText,
   HostRoot,
+  ContextConsumer,
+  ContextProvider,
+  Mode,
 } from 'shared/ReactTypeOfWork';
 import invariant from 'fbjs/lib/invariant';
 
@@ -286,19 +290,46 @@ function toJSON(inst: Instance | TextInstance): ReactTestRendererNode {
   }
 }
 
-function nodeAndSiblingsTrees(nodeWithSibling: ?Fiber) {
+function childrenToTree(node) {
+  if (!node) {
+    return null;
+  }
+  const children = nodeAndSiblingsArray(node);
+  if (children.length === 0) {
+    return null;
+  } else if (children.length === 1) {
+    return toTree(children[0]);
+  }
+  return flatten(children.map(toTree));
+}
+
+function nodeAndSiblingsArray(nodeWithSibling) {
   const array = [];
   let node = nodeWithSibling;
   while (node != null) {
     array.push(node);
     node = node.sibling;
   }
-  const trees = array.map(toTree);
-  return trees.length ? trees : null;
+  return array;
 }
 
-function hasSiblings(node: ?Fiber) {
-  return node && node.sibling;
+function flatten(arr) {
+  const result = [];
+  const stack = [{i: 0, array: arr}];
+  while (stack.length) {
+    const n = stack.pop();
+    while (n.i < n.array.length) {
+      const el = n.array[n.i];
+      n.i += 1;
+      if (Array.isArray(el)) {
+        stack.push(n);
+        stack.push({i: 0, array: el});
+        break;
+      }
+      result.push(el);
+    }
+  }
+  return result;
 }
 
 function toTree(node: ?Fiber) {
@@ -306,40 +337,42 @@ function toTree(node: ?Fiber) {
     return null;
   }
   switch (node.tag) {
-    case HostRoot: // 3
-      return toTree(node.child);
+    case HostRoot:
+      return childrenToTree(node.child);
+    case HostPortal:
+      return childrenToTree(node.child);
     case ClassComponent:
       return {
         nodeType: 'component',
         type: node.type,
         props: {...node.memoizedProps},
         instance: node.stateNode,
-        rendered: hasSiblings(node.child)
-          ? nodeAndSiblingsTrees(node.child)
-          : toTree(node.child),
+        rendered: childrenToTree(node.child),
       };
-    case FunctionalComponent: // 1
+    case FunctionalComponent:
       return {
         nodeType: 'component',
         type: node.type,
         props: {...node.memoizedProps},
         instance: null,
-        rendered: hasSiblings(node.child)
-          ? nodeAndSiblingsTrees(node.child)
-          : toTree(node.child),
+        rendered: childrenToTree(node.child),
       };
-    case HostComponent: // 5
+    case HostComponent: {
       return {
         nodeType: 'host',
         type: node.type,
         props: {...node.memoizedProps},
         instance: null, // TODO: use createNodeMock here somehow?
-        rendered: nodeAndSiblingsTrees(node.child),
+        rendered: flatten(nodeAndSiblingsArray(node.child).map(toTree)),
       };
-    case HostText: // 6
+    }
+    case HostText:
       return node.stateNode.text;
-    case Fragment: // 10
-      return toTree(node.child);
+    case Fragment:
+    case ContextProvider:
+    case ContextConsumer:
+    case Mode:
+      return childrenToTree(node.child);
     default:
       invariant(
         false,
@@ -436,6 +469,9 @@ class ReactTestInstance {
           children.push('' + node.memoizedProps);
           break;
         case Fragment:
+        case ContextProvider:
+        case ContextConsumer:
+        case Mode:
           descend = true;
           break;
         default:
@@ -526,12 +562,12 @@ function findAll(
     }
   }
 
-  for (const child of root.children) {
+  root.children.forEach(child => {
     if (typeof child === 'string') {
-      continue;
+      return;
     }
     results.push(...findAll(child, predicate, options));
-  }
+  });
 
   return results;
 }

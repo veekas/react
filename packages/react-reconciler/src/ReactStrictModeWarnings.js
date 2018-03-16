@@ -11,7 +11,8 @@ import type {Fiber} from './ReactFiber';
 
 import getComponentName from 'shared/getComponentName';
 import {getStackAddendumByWorkInProgressFiber} from 'shared/ReactFiberComponentTreeHook';
-import {StrictMode} from './ReactTypeOfInternalContext';
+import {StrictMode} from './ReactTypeOfMode';
+import lowPriorityWarning from 'shared/lowPriorityWarning';
 import warning from 'fbjs/lib/warning';
 
 type LIFECYCLE =
@@ -104,7 +105,7 @@ if (__DEV__) {
     let maybeStrictRoot = null;
 
     while (fiber !== null) {
-      if (fiber.internalContextTag & StrictMode) {
+      if (fiber.mode & StrictMode) {
         maybeStrictRoot = fiber;
       }
 
@@ -126,7 +127,7 @@ if (__DEV__) {
         .sort()
         .join(', ');
 
-      warning(
+      lowPriorityWarning(
         false,
         'componentWillMount is deprecated and will be removed in the next major version. ' +
           'Use componentDidMount instead. As a temporary workaround, ' +
@@ -151,7 +152,7 @@ if (__DEV__) {
         .sort()
         .join(', ');
 
-      warning(
+      lowPriorityWarning(
         false,
         'componentWillReceiveProps is deprecated and will be removed in the next major version. ' +
           'Use static getDerivedStateFromProps instead.' +
@@ -175,7 +176,7 @@ if (__DEV__) {
         .sort()
         .join(', ');
 
-      warning(
+      lowPriorityWarning(
         false,
         'componentWillUpdate is deprecated and will be removed in the next major version. ' +
           'Use componentDidUpdate instead. As a temporary workaround, ' +
@@ -199,10 +200,17 @@ if (__DEV__) {
       return;
     }
 
-    if (typeof instance.componentWillMount === 'function') {
+    // Don't warn about react-lifecycles-compat polyfilled components.
+    if (
+      typeof instance.componentWillMount === 'function' &&
+      instance.componentWillMount.__suppressDeprecationWarning !== true
+    ) {
       pendingComponentWillMountWarnings.push(fiber);
     }
-    if (typeof instance.componentWillReceiveProps === 'function') {
+    if (
+      typeof instance.componentWillReceiveProps === 'function' &&
+      instance.componentWillReceiveProps.__suppressDeprecationWarning !== true
+    ) {
       pendingComponentWillReceivePropsWarnings.push(fiber);
     }
     if (typeof instance.componentWillUpdate === 'function') {
@@ -222,6 +230,16 @@ if (__DEV__) {
     // An expand property is probably okay to use here since it's DEV-only,
     // and will only be set in the event of serious warnings.
     if (didWarnAboutUnsafeLifecycles.has(fiber.type)) {
+      return;
+    }
+
+    // Don't warn about react-lifecycles-compat polyfilled components.
+    // Note that it is sufficient to check for the presence of a
+    // single lifecycle, componentWillMount, with the polyfill flag.
+    if (
+      typeof instance.componentWillMount === 'function' &&
+      instance.componentWillMount.__suppressDeprecationWarning === true
+    ) {
       return;
     }
 

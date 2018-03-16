@@ -7,8 +7,6 @@
  * @flow
  */
 
-export type TypeOfInternalContext = number;
+'use strict';
 
-export const NoContext = 0b00000000;
-export const AsyncUpdates = 0b00000001;
-export const StrictMode = 0b00000010;
+export * from './src/createSubscription';

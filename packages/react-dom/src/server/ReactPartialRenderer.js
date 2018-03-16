@@ -19,6 +19,7 @@ import emptyFunction from 'fbjs/lib/emptyFunction';
 import emptyObject from 'fbjs/lib/emptyObject';
 import hyphenateStyleName from 'fbjs/lib/hyphenateStyleName';
 import invariant from 'fbjs/lib/invariant';
+import lowPriorityWarning from 'shared/lowPriorityWarning';
 import memoizeStringOnly from 'fbjs/lib/memoizeStringOnly';
 import warning from 'fbjs/lib/warning';
 import checkPropTypes from 'prop-types/checkPropTypes';
@@ -26,7 +27,10 @@ import describeComponentFrame from 'shared/describeComponentFrame';
 import {ReactDebugCurrentFrame} from 'shared/ReactGlobalSharedState';
 import {warnAboutDeprecatedLifecycles} from 'shared/ReactFeatureFlags';
 import {
+  REACT_FORWARD_REF_TYPE,
   REACT_FRAGMENT_TYPE,
+  REACT_STRICT_MODE_TYPE,
+  REACT_ASYNC_MODE_TYPE,
   REACT_CALL_TYPE,
   REACT_RETURN_TYPE,
   REACT_PORTAL_TYPE,
@@ -378,36 +382,26 @@ function resolve(
   child: mixed,
   context: Object,
 |} {
-  let element: ReactElement;
-
-  let Component;
-  let publicContext;
-  let inst, queue, replace;
-  let updater;
-
-  let initialState;
-  let oldQueue, oldReplace;
-  let nextState, dontMutate;
-  let partial, partialState;
-
-  let childContext;
-  let childContextTypes, contextKey;
-
   while (React.isValidElement(child)) {
     // Safe because we just checked it's an element.
-    element = ((child: any): ReactElement);
+    let element: ReactElement = (child: any);
+    let Component = element.type;
     if (__DEV__) {
       pushElementToDebugStack(element);
     }
-    Component = element.type;
     if (typeof Component !== 'function') {
       break;
     }
-    publicContext = processContext(Component, context);
+    processChild(element, Component);
+  }
 
-    queue = [];
-    replace = false;
-    updater = {
+  // Extra closure so queue and replace can be captured properly
+  function processChild(element, Component) {
+    let publicContext = processContext(Component, context);
+
+    let queue = [];
+    let replace = false;
+    let updater = {
       isMounted: function(publicInstance) {
         return false;
       },
@@ -430,6 +424,7 @@ function resolve(
       },
     };
 
+    let inst;
     if (shouldConstruct(Component)) {
       inst = new Component(element.props, publicContext, updater);
 
@@ -450,7 +445,7 @@ function resolve(
           }
         }
 
-        partialState = Component.getDerivedStateFromProps.call(
+        let partialState = Component.getDerivedStateFromProps.call(
           null,
           element.props,
           inst.state,
@@ -499,7 +494,7 @@ function resolve(
       if (inst == null || inst.render == null) {
         child = inst;
         validateRenderResult(child, Component);
-        continue;
+        return;
       }
     }
 
@@ -507,18 +502,24 @@ function resolve(
     inst.context = publicContext;
     inst.updater = updater;
 
-    initialState = inst.state;
+    let initialState = inst.state;
     if (initialState === undefined) {
       inst.state = initialState = null;
     }
-    if (inst.UNSAFE_componentWillMount || inst.componentWillMount) {
-      if (inst.componentWillMount) {
+    if (
+      typeof inst.UNSAFE_componentWillMount === 'function' ||
+      typeof inst.componentWillMount === 'function'
+    ) {
+      if (typeof inst.componentWillMount === 'function') {
         if (__DEV__) {
-          if (warnAboutDeprecatedLifecycles) {
+          if (
+            warnAboutDeprecatedLifecycles &&
+            inst.componentWillMount.__suppressDeprecationWarning !== true
+          ) {
             const componentName = getComponentName(Component) || 'Unknown';
 
             if (!didWarnAboutDeprecatedWillMount[componentName]) {
-              warning(
+              lowPriorityWarning(
                 false,
                 '%s: componentWillMount() is deprecated and will be ' +
                   'removed in the next major version. Read about the motivations ' +
@@ -534,24 +535,34 @@ function resolve(
           }
         }
 
-        inst.componentWillMount();
-      } else {
+        // In order to support react-lifecycles-compat polyfilled components,
+        // Unsafe lifecycles should not be invoked for any component with the new gDSFP.
+        if (typeof Component.getDerivedStateFromProps !== 'function') {
+          inst.componentWillMount();
+        }
+      }
+      if (
+        typeof inst.UNSAFE_componentWillMount === 'function' &&
+        typeof Component.getDerivedStateFromProps !== 'function'
+      ) {
+        // In order to support react-lifecycles-compat polyfilled components,
+        // Unsafe lifecycles should not be invoked for any component with the new gDSFP.
         inst.UNSAFE_componentWillMount();
       }
       if (queue.length) {
-        oldQueue = queue;
-        oldReplace = replace;
+        let oldQueue = queue;
+        let oldReplace = replace;
         queue = null;
         replace = false;
 
         if (oldReplace && oldQueue.length === 1) {
           inst.state = oldQueue[0];
         } else {
-          nextState = oldReplace ? oldQueue[0] : inst.state;
-          dontMutate = true;
+          let nextState = oldReplace ? oldQueue[0] : inst.state;
+          let dontMutate = true;
           for (let i = oldReplace ? 1 : 0; i < oldQueue.length; i++) {
-            partial = oldQueue[i];
-            partialState =
+            let partial = oldQueue[i];
+            let partialState =
               typeof partial === 'function'
                 ? partial.call(inst, nextState, element.props, publicContext)
                 : partial;
@@ -581,11 +592,12 @@ function resolve(
     }
     validateRenderResult(child, Component);
 
+    let childContext;
     if (typeof inst.getChildContext === 'function') {
-      childContextTypes = Component.childContextTypes;
+      let childContextTypes = Component.childContextTypes;
       if (typeof childContextTypes === 'object') {
         childContext = inst.getChildContext();
-        for (contextKey in childContext) {
+        for (let contextKey in childContext) {
           invariant(
             contextKey in childContextTypes,
             '%s.getChildContext(): key "%s" is not defined in childContextTypes.',
@@ -664,7 +676,7 @@ class ReactDOMServerRenderer {
     this.providerIndex += 1;
     this.providerStack[this.providerIndex] = provider;
     const context: ReactContext<any> = provider.type.context;
-    context.currentValue = provider.props.value;
+    context._currentValue = provider.props.value;
   }
 
   popProvider<T>(provider: ReactProvider<T>): void {
@@ -679,13 +691,13 @@ class ReactDOMServerRenderer {
     this.providerIndex -= 1;
     const context: ReactContext<any> = provider.type.context;
     if (this.providerIndex < 0) {
-      context.currentValue = context.defaultValue;
+      context._currentValue = context._defaultValue;
     } else {
       // We assume this type is correct because of the index check above.
       const previousProvider: ReactProvider<any> = (this.providerStack[
         this.providerIndex
       ]: any);
-      context.currentValue = previousProvider.props.value;
+      context._currentValue = previousProvider.props.value;
     }
   }
 
@@ -797,6 +809,8 @@ class ReactDOMServerRenderer {
       }
 
       switch (elementType) {
+        case REACT_STRICT_MODE_TYPE:
+        case REACT_ASYNC_MODE_TYPE:
         case REACT_FRAGMENT_TYPE: {
           const nextChildren = toArray(
             ((nextChild: any): ReactElement).props.children,
@@ -828,6 +842,25 @@ class ReactDOMServerRenderer {
       }
       if (typeof elementType === 'object' && elementType !== null) {
         switch (elementType.$$typeof) {
+          case REACT_FORWARD_REF_TYPE: {
+            const element: ReactElement = ((nextChild: any): ReactElement);
+            const nextChildren = toArray(
+              elementType.render(element.props, element.ref),
+            );
+            const frame: Frame = {
+              type: null,
+              domNamespace: parentNamespace,
+              children: nextChildren,
+              childIndex: 0,
+              context: context,
+              footer: '',
+            };
+            if (__DEV__) {
+              ((frame: any): FrameDev).debugElementStack = [];
+            }
+            this.stack.push(frame);
+            return '';
+          }
           case REACT_PROVIDER_TYPE: {
             const provider: ReactProvider<any> = (nextChild: any);
             const nextProps = provider.props;
@@ -851,10 +884,10 @@ class ReactDOMServerRenderer {
           }
           case REACT_CONTEXT_TYPE: {
             const consumer: ReactConsumer<any> = (nextChild: any);
-            const nextProps = consumer.props;
-            const nextValue = consumer.type.currentValue;
+            const nextProps: any = consumer.props;
+            const nextValue = consumer.type._currentValue;
 
-            const nextChildren = toArray(nextProps.render(nextValue));
+            const nextChildren = toArray(nextProps.children(nextValue));
             const frame: Frame = {
               type: nextChild,
               domNamespace: parentNamespace,
@@ -873,12 +906,33 @@ class ReactDOMServerRenderer {
             break;
         }
       }
+
+      let info = '';
+      if (__DEV__) {
+        const owner = nextElement._owner;
+        if (
+          elementType === undefined ||
+          (typeof elementType === 'object' &&
+            elementType !== null &&
+            Object.keys(elementType).length === 0)
+        ) {
+          info +=
+            ' You likely forgot to export your component from the file ' +
+            "it's defined in, or you might have mixed up default and " +
+            'named imports.';
+        }
+        const ownerName = owner ? getComponentName(owner) : null;
+        if (ownerName) {
+          info += '\n\nCheck the render method of `' + ownerName + '`.';
+        }
+      }
       invariant(
         false,
         'Element type is invalid: expected a string (for built-in ' +
           'components) or a class/function (for composite components) ' +
-          'but got: %s.',
+          'but got: %s.%s',
         elementType == null ? elementType : typeof elementType,
+        info,
       );
     }
   }

@@ -71,23 +71,21 @@ export type ReactConsumer<T> = {
   key: null | string,
   ref: null,
   props: {
-    render: (value: T) => ReactNodeList,
+    children: (value: T) => ReactNodeList,
     bits?: number,
   },
 };
 
 export type ReactContext<T> = {
   $$typeof: Symbol | number,
-  provide(value: T, children: ReactNodeList, key?: string): ReactProvider<T>,
-  consume(
-    render: (value: T) => ReactNodeList,
-    observedBits?: number,
-    key?: string,
-  ): ReactConsumer<T>,
-  calculateChangedBits: ((a: T, b: T) => number) | null,
-  defaultValue: T,
-  currentValue: T,
-  changedBits: number,
+  Consumer: ReactContext<T>,
+  Provider: ReactProviderType<T>,
+
+  _calculateChangedBits: ((a: T, b: T) => number) | null,
+  _defaultValue: T,
+
+  _currentValue: T,
+  _changedBits: number,
 
   // DEV only
   _currentRenderer?: Object | null,
@@ -101,3 +99,7 @@ export type ReactPortal = {
   // TODO: figure out the API for cross-renderer implementation.
   implementation: any,
 };
+
+export type RefObject = {|
+  current: any,
+|};

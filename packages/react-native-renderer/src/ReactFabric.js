@@ -10,12 +10,11 @@
 import type {ReactNativeType} from './ReactNativeTypes';
 import type {ReactNodeList} from 'shared/ReactTypes';
 
-import './ReactNativeInjection';
+import './ReactFabricInjection';
 
 import * as ReactPortal from 'shared/ReactPortal';
 import * as ReactGenericBatching from 'events/ReactGenericBatching';
 import TouchHistoryMath from 'events/TouchHistoryMath';
-import * as ReactGlobalSharedState from 'shared/ReactGlobalSharedState';
 import ReactVersion from 'shared/ReactVersion';
 
 import NativeMethodsMixin from './NativeMethodsMixin';
@@ -32,9 +31,7 @@ import takeSnapshot from './takeSnapshot';
 
 injectFindHostInstanceFabric(ReactFabricRenderer.findHostInstance);
 
-ReactGenericBatching.injection.injectFiberBatchedUpdates(
-  ReactFabricRenderer.batchedUpdates,
-);
+ReactGenericBatching.injection.injectRenderer(ReactFabricRenderer);
 
 const roots = new Map();
 
@@ -88,8 +85,7 @@ const ReactFabric: ReactNativeType = {
     NativeMethodsMixin,
     // Used by react-native-github/Libraries/ components
     ReactNativeBridgeEventPlugin, // requireNativeComponent
-    ReactGlobalSharedState, // Systrace
-    ReactNativeComponentTree, // InspectorUtils, ScrollResponder
+    ReactNativeComponentTree, // ScrollResponder
     ReactNativePropRegistry, // flattenStyle, Stylesheet
     TouchHistoryMath, // PanResponder
     createReactNativeComponentClass, // RCTText, RCTView, ReactNativeART

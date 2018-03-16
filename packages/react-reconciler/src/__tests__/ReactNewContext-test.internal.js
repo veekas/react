@@ -10,7 +10,6 @@
 'use strict';
 
 let ReactFeatureFlags = require('shared/ReactFeatureFlags');
-ReactFeatureFlags.enableNewContextAPI = true;
 
 let React = require('react');
 let ReactNoop;
@@ -21,7 +20,6 @@ describe('ReactNewContext', () => {
     jest.resetModules();
     ReactFeatureFlags = require('shared/ReactFeatureFlags');
     ReactFeatureFlags.debugRenderPhaseSideEffectsForStrictMode = false;
-    ReactFeatureFlags.enableNewContextAPI = true;
     React = require('react');
     ReactNoop = require('react-noop-renderer');
     gen = require('random-seed');
@@ -37,29 +35,27 @@ describe('ReactNewContext', () => {
   }
 
   it('simple mount and update', () => {
-    const Context = React.unstable_createContext(1);
-
-    function Provider(props) {
-      return Context.provide(props.value, props.children);
-    }
+    const Context = React.createContext(1);
 
     function Consumer(props) {
-      return Context.consume(value => {
-        return <span prop={'Result: ' + value} />;
-      });
+      return (
+        <Context.Consumer>
+          {value => <span prop={'Result: ' + value} />}
+        </Context.Consumer>
+      );
     }
 
     const Indirection = React.Fragment;
 
     function App(props) {
       return (
-        <Provider value={props.value}>
+        <Context.Provider value={props.value}>
           <Indirection>
             <Indirection>
               <Consumer />
             </Indirection>
           </Indirection>
-        </Provider>
+        </Context.Provider>
       );
     }
 
@@ -74,19 +70,27 @@ describe('ReactNewContext', () => {
   });
 
   it('propagates through shouldComponentUpdate false', () => {
-    const Context = React.unstable_createContext(1);
+    const Context = React.createContext(1);
 
     function Provider(props) {
       ReactNoop.yield('Provider');
-      return Context.provide(props.value, props.children);
+      return (
+        <Context.Provider value={props.value}>
+          {props.children}
+        </Context.Provider>
+      );
     }
 
     function Consumer(props) {
       ReactNoop.yield('Consumer');
-      return Context.consume(value => {
-        ReactNoop.yield('Consumer render prop');
-        return <span prop={'Result: ' + value} />;
-      });
+      return (
+        <Context.Consumer>
+          {value => {
+            ReactNoop.yield('Consumer render prop');
+            return <span prop={'Result: ' + value} />;
+          }}
+        </Context.Consumer>
+      );
     }
 
     class Indirection extends React.Component {
@@ -134,19 +138,27 @@ describe('ReactNewContext', () => {
   });
 
   it('consumers bail out if context value is the same', () => {
-    const Context = React.unstable_createContext(1);
+    const Context = React.createContext(1);
 
     function Provider(props) {
       ReactNoop.yield('Provider');
-      return Context.provide(props.value, props.children);
+      return (
+        <Context.Provider value={props.value}>
+          {props.children}
+        </Context.Provider>
+      );
     }
 
     function Consumer(props) {
       ReactNoop.yield('Consumer');
-      return Context.consume(value => {
-        ReactNoop.yield('Consumer render prop');
-        return <span prop={'Result: ' + value} />;
-      });
+      return (
+        <Context.Consumer>
+          {value => {
+            ReactNoop.yield('Consumer render prop');
+            return <span prop={'Result: ' + value} />;
+          }}
+        </Context.Consumer>
+      );
     }
 
     class Indirection extends React.Component {
@@ -194,19 +206,27 @@ describe('ReactNewContext', () => {
   });
 
   it('nested providers', () => {
-    const Context = React.unstable_createContext(1);
+    const Context = React.createContext(1);
 
     function Provider(props) {
-      return Context.consume(contextValue =>
-        // Multiply previous context value by 2, unless prop overrides
-        Context.provide(props.value || contextValue * 2, props.children),
+      return (
+        <Context.Consumer>
+          {contextValue => (
+            // Multiply previous context value by 2, unless prop overrides
+            <Context.Provider value={props.value || contextValue * 2}>
+              {props.children}
+            </Context.Provider>
+          )}
+        </Context.Consumer>
       );
     }
 
     function Consumer(props) {
-      return Context.consume(value => {
-        return <span prop={'Result: ' + value} />;
-      });
+      return (
+        <Context.Consumer>
+          {value => <span prop={'Result: ' + value} />}
+        </Context.Consumer>
+      );
     }
 
     class Indirection extends React.Component {
@@ -246,20 +266,62 @@ describe('ReactNewContext', () => {
     expect(ReactNoop.getChildren()).toEqual([span('Result: 12')]);
   });
 
+  it('should provide the correct (default) values to consumers outside of a provider', () => {
+    const FooContext = React.createContext({value: 'foo-initial'});
+    const BarContext = React.createContext({value: 'bar-initial'});
+
+    const Verify = ({actual, expected}) => {
+      expect(expected).toBe(actual);
+      return null;
+    };
+
+    ReactNoop.render(
+      <React.Fragment>
+        <BarContext.Provider value={{value: 'bar-updated'}}>
+          <BarContext.Consumer>
+            {({value}) => <Verify actual={value} expected="bar-updated" />}
+          </BarContext.Consumer>
+
+          <FooContext.Provider value={{value: 'foo-updated'}}>
+            <FooContext.Consumer>
+              {({value}) => <Verify actual={value} expected="foo-updated" />}
+            </FooContext.Consumer>
+          </FooContext.Provider>
+        </BarContext.Provider>
+
+        <FooContext.Consumer>
+          {({value}) => <Verify actual={value} expected="foo-initial" />}
+        </FooContext.Consumer>
+        <BarContext.Consumer>
+          {({value}) => <Verify actual={value} expected="bar-initial" />}
+        </BarContext.Consumer>
+      </React.Fragment>,
+    );
+    ReactNoop.flush();
+  });
+
   it('multiple consumers in different branches', () => {
-    const Context = React.unstable_createContext(1);
+    const Context = React.createContext(1);
 
     function Provider(props) {
-      return Context.consume(contextValue =>
-        // Multiply previous context value by 2, unless prop overrides
-        Context.provide(props.value || contextValue * 2, props.children),
+      return (
+        <Context.Consumer>
+          {contextValue => (
+            // Multiply previous context value by 2, unless prop overrides
+            <Context.Provider value={props.value || contextValue * 2}>
+              {props.children}
+            </Context.Provider>
+          )}
+        </Context.Consumer>
       );
     }
 
     function Consumer(props) {
-      return Context.consume(value => {
-        return <span prop={'Result: ' + value} />;
-      });
+      return (
+        <Context.Consumer>
+          {value => <span prop={'Result: ' + value} />}
+        </Context.Consumer>
+      );
     }
 
     class Indirection extends React.Component {
@@ -313,19 +375,27 @@ describe('ReactNewContext', () => {
   });
 
   it('compares context values with Object.is semantics', () => {
-    const Context = React.unstable_createContext(1);
+    const Context = React.createContext(1);
 
     function Provider(props) {
       ReactNoop.yield('Provider');
-      return Context.provide(props.value, props.children);
+      return (
+        <Context.Provider value={props.value}>
+          {props.children}
+        </Context.Provider>
+      );
     }
 
     function Consumer(props) {
       ReactNoop.yield('Consumer');
-      return Context.consume(value => {
-        ReactNoop.yield('Consumer render prop');
-        return <span prop={'Result: ' + value} />;
-      });
+      return (
+        <Context.Consumer>
+          {value => {
+            ReactNoop.yield('Consumer render prop');
+            return <span prop={'Result: ' + value} />;
+          }}
+        </Context.Consumer>
+      );
     }
 
     class Indirection extends React.Component {
@@ -374,16 +444,14 @@ describe('ReactNewContext', () => {
   });
 
   it('context unwinds when interrupted', () => {
-    const Context = React.unstable_createContext('Default');
-
-    function Provider(props) {
-      return Context.provide(props.value, props.children);
-    }
+    const Context = React.createContext('Default');
 
     function Consumer(props) {
-      return Context.consume(value => {
-        return <span prop={'Result: ' + value} />;
-      });
+      return (
+        <Context.Consumer>
+          {value => <span prop={'Result: ' + value} />}
+        </Context.Consumer>
+      );
     }
 
     function BadRender() {
@@ -406,14 +474,14 @@ describe('ReactNewContext', () => {
     function App(props) {
       return (
         <React.Fragment>
-          <Provider value="Does not unwind">
+          <Context.Provider value="Does not unwind">
             <ErrorBoundary>
-              <Provider value="Unwinds after BadRender throws">
+              <Context.Provider value="Unwinds after BadRender throws">
                 <BadRender />
-              </Provider>
+              </Context.Provider>
             </ErrorBoundary>
             <Consumer />
-          </Provider>
+          </Context.Provider>
         </React.Fragment>
       );
     }
@@ -421,13 +489,13 @@ describe('ReactNewContext', () => {
     ReactNoop.render(<App value="A" />);
     ReactNoop.flush();
     expect(ReactNoop.getChildren()).toEqual([
-      // The second provider should use the default value. This proves the
+      // The second provider should use the default value.
       span('Result: Does not unwind'),
     ]);
   });
 
   it('can skip consumers with bitmask', () => {
-    const Context = React.unstable_createContext({foo: 0, bar: 0}, (a, b) => {
+    const Context = React.createContext({foo: 0, bar: 0}, (a, b) => {
       let result = 0;
       if (a.foo !== b.foo) {
         result |= 0b01;
@@ -439,21 +507,33 @@ describe('ReactNewContext', () => {
     });
 
     function Provider(props) {
-      return Context.provide({foo: props.foo, bar: props.bar}, props.children);
+      return (
+        <Context.Provider value={{foo: props.foo, bar: props.bar}}>
+          {props.children}
+        </Context.Provider>
+      );
     }
 
     function Foo() {
-      return Context.consume(value => {
-        ReactNoop.yield('Foo');
-        return <span prop={'Foo: ' + value.foo} />;
-      }, 0b01);
+      return (
+        <Context.Consumer unstable_observedBits={0b01}>
+          {value => {
+            ReactNoop.yield('Foo');
+            return <span prop={'Foo: ' + value.foo} />;
+          }}
+        </Context.Consumer>
+      );
     }
 
     function Bar() {
-      return Context.consume(value => {
-        ReactNoop.yield('Bar');
-        return <span prop={'Bar: ' + value.bar} />;
-      }, 0b10);
+      return (
+        <Context.Consumer unstable_observedBits={0b10}>
+          {value => {
+            ReactNoop.yield('Bar');
+            return <span prop={'Bar: ' + value.bar} />;
+          }}
+        </Context.Consumer>
+      );
     }
 
     class Indirection extends React.Component {
@@ -503,20 +583,16 @@ describe('ReactNewContext', () => {
   it('warns if calculateChangedBits returns larger than a 31-bit integer', () => {
     spyOnDev(console, 'error');
 
-    const Context = React.unstable_createContext(
+    const Context = React.createContext(
       0,
       (a, b) => Math.pow(2, 32) - 1, // Return 32 bit int
     );
 
-    function Provider(props) {
-      return Context.provide(props.value, props.children);
-    }
-
-    ReactNoop.render(<Provider value={1} />);
+    ReactNoop.render(<Context.Provider value={1} />);
     ReactNoop.flush();
 
     // Update
-    ReactNoop.render(<Provider value={2} />);
+    ReactNoop.render(<Context.Provider value={2} />);
     ReactNoop.flush();
 
     if (__DEV__) {
@@ -530,22 +606,19 @@ describe('ReactNewContext', () => {
 
   it('warns if multiple renderers concurrently render the same context', () => {
     spyOnDev(console, 'error');
-    const Context = React.unstable_createContext(0);
+    const Context = React.createContext(0);
 
     function Foo(props) {
       ReactNoop.yield('Foo');
       return null;
     }
-    function Provider(props) {
-      return Context.provide(props.value, props.children);
-    }
 
     function App(props) {
       return (
-        <Provider value={props.value}>
+        <Context.Provider value={props.value}>
           <Foo />
           <Foo />
-        </Provider>
+        </Context.Provider>
       );
     }
 
@@ -556,7 +629,6 @@ describe('ReactNewContext', () => {
     // Get a new copy of ReactNoop
     jest.resetModules();
     ReactFeatureFlags = require('shared/ReactFeatureFlags');
-    ReactFeatureFlags.enableNewContextAPI = true;
     React = require('react');
     ReactNoop = require('react-noop-renderer');
 
@@ -570,6 +642,124 @@ describe('ReactNewContext', () => {
           'context provider. This is currently unsupported',
       );
     }
+  });
+
+  it('warns if consumer child is not a function', () => {
+    spyOnDev(console, 'error');
+    const Context = React.createContext(0);
+    ReactNoop.render(<Context.Consumer />);
+    expect(ReactNoop.flush).toThrow('render is not a function');
+    if (__DEV__) {
+      expect(console.error.calls.argsFor(0)[0]).toContain(
+        'A context consumer was rendered with multiple children, or a child ' +
+          "that isn't a function",
+      );
+    }
+  });
+
+  it("does not re-render if there's an update in a child", () => {
+    const Context = React.createContext(0);
+
+    let child;
+    class Child extends React.Component {
+      state = {step: 0};
+      render() {
+        ReactNoop.yield('Child');
+        return (
+          <span
+            prop={`Context: ${this.props.context}, Step: ${this.state.step}`}
+          />
+        );
+      }
+    }
+
+    function App(props) {
+      return (
+        <Context.Provider value={props.value}>
+          <Context.Consumer>
+            {value => {
+              ReactNoop.yield('Consumer render prop');
+              return <Child ref={inst => (child = inst)} context={value} />;
+            }}
+          </Context.Consumer>
+        </Context.Provider>
+      );
+    }
+
+    // Initial mount
+    ReactNoop.render(<App value={1} />);
+    expect(ReactNoop.flush()).toEqual(['Consumer render prop', 'Child']);
+    expect(ReactNoop.getChildren()).toEqual([span('Context: 1, Step: 0')]);
+
+    child.setState({step: 1});
+    expect(ReactNoop.flush()).toEqual(['Child']);
+    expect(ReactNoop.getChildren()).toEqual([span('Context: 1, Step: 1')]);
+  });
+
+  it('provider bails out if children and value are unchanged (like sCU)', () => {
+    const Context = React.createContext(0);
+
+    function Child() {
+      ReactNoop.yield('Child');
+      return <span prop="Child" />;
+    }
+
+    const children = <Child />;
+
+    function App(props) {
+      ReactNoop.yield('App');
+      return (
+        <Context.Provider value={props.value}>{children}</Context.Provider>
+      );
+    }
+
+    // Initial mount
+    ReactNoop.render(<App value={1} />);
+    expect(ReactNoop.flush()).toEqual(['App', 'Child']);
+    expect(ReactNoop.getChildren()).toEqual([span('Child')]);
+
+    // Update
+    ReactNoop.render(<App value={1} />);
+    expect(ReactNoop.flush()).toEqual([
+      'App',
+      // Child does not re-render
+    ]);
+    expect(ReactNoop.getChildren()).toEqual([span('Child')]);
+  });
+
+  it('consumer bails out if children and value are unchanged (like sCU)', () => {
+    const Context = React.createContext(0);
+
+    function Child() {
+      ReactNoop.yield('Child');
+      return <span prop="Child" />;
+    }
+
+    function renderConsumer(context) {
+      return <Child context={context} />;
+    }
+
+    function App(props) {
+      ReactNoop.yield('App');
+      return (
+        <Context.Provider value={props.value}>
+          <Context.Consumer>{renderConsumer}</Context.Consumer>
+        </Context.Provider>
+      );
+    }
+
+    // Initial mount
+    ReactNoop.render(<App value={1} />);
+    expect(ReactNoop.flush()).toEqual(['App', 'Child']);
+    expect(ReactNoop.getChildren()).toEqual([span('Child')]);
+
+    // Update
+    ReactNoop.render(<App value={1} />);
+    expect(ReactNoop.flush()).toEqual([
+      'App',
+      // Child does not re-render
+    ]);
+    expect(ReactNoop.getChildren()).toEqual([span('Child')]);
   });
 
   describe('fuzz test', () => {
@@ -641,7 +831,7 @@ describe('ReactNewContext', () => {
     function ContextSimulator(maxDepth) {
       const contexts = new Map(
         contextKeys.map(key => {
-          const Context = React.unstable_createContext(0);
+          const Context = React.createContext(0);
           Context.displayName = 'Context' + key;
           return [key, Context];
         }),
@@ -661,19 +851,19 @@ describe('ReactNewContext', () => {
                 this.props.rand.intBetween(0, contextKeys.length - 1)
               ];
             const Context = contexts.get(randomKey);
-            return Context.consume(
-              value => (
-                <Fragment>
-                  <span prop={`${randomKey}:${value}`} />
-                  <ConsumerTree
-                    rand={this.props.rand}
-                    depth={this.props.depth + 1}
-                    maxDepth={this.props.maxDepth}
-                  />
-                </Fragment>
-              ),
-              null,
-              i,
+            return (
+              <Context.Consumer key={i}>
+                {value => (
+                  <Fragment>
+                    <span prop={`${randomKey}:${value}`} />
+                    <ConsumerTree
+                      rand={this.props.rand}
+                      depth={this.props.depth + 1}
+                      maxDepth={this.props.maxDepth}
+                    />
+                  </Fragment>
+                )}
+              </Context.Consumer>
             );
           });
           return consumers;
@@ -684,7 +874,7 @@ describe('ReactNewContext', () => {
         return contextKeys.reduceRight((children, key) => {
           const Context = contexts.get(key);
           const value = props.values[key];
-          return Context.provide(value, children);
+          return <Context.Provider value={value}>{children}</Context.Provider>;
         }, <ConsumerTree rand={props.rand} depth={0} maxDepth={props.maxDepth} />);
       }
 
