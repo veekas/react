@@ -211,15 +211,9 @@ describe('ReactComponentLifeCycle', () => {
     expect(() => {
       ReactTestUtils.renderIntoDocument(<StatefulComponent />);
     }).toWarnDev([
-      'It looks like the StatefulComponent component contains a line like this ' +
-        'in its constructor:\n\n' +
-        'this.state = props;\n\n' +
-        "This is not recommended because any further updates to props won't be " +
-        "reflected in the state. In most cases, you don't need to keep state and " +
-        'props in sync. Instead, use the props directly. If you need to calculate ' +
-        'something from the props, do it during the rendering. If you need to ' +
-        'share the state between several components, move it to their closest ' +
-        'common ancestor and pass it down as props to them.',
+      'StatefulComponent: It is not recommended to assign props directly to state' +
+        "because updates to props won't be reflected in state." +
+        'In most cases, it is better to use props directly.',
     ]);
   });
 
