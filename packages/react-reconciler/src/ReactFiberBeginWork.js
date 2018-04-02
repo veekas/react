@@ -612,6 +612,7 @@ export default function<T, P, I, TI, HI, PI, C, CC, CX, PL>(
           workInProgress,
           value,
           props,
+          workInProgress.memoizedState,
         );
 
         if (partialState !== null && partialState !== undefined) {
@@ -776,6 +777,10 @@ export default function<T, P, I, TI, HI, PI, C, CC, CX, PL>(
     renderExpirationTime: ExpirationTime,
   ): void {
     let fiber = workInProgress.child;
+    if (fiber !== null) {
+      // Set the return pointer of the child to the work-in-progress fiber.
+      fiber.return = workInProgress;
+    }
     while (fiber !== null) {
       let nextFiber;
       // Visit this fiber.
@@ -989,10 +994,10 @@ export default function<T, P, I, TI, HI, PI, C, CC, CX, PL>(
         changedBits,
         renderExpirationTime,
       );
-    } else if (oldProps !== null && oldProps.children === newProps.children) {
-      // No change. Bailout early if children are the same.
-      return bailoutOnAlreadyFinishedWork(current, workInProgress);
     }
+    // There is no bailout on `children` equality because we expect people
+    // to often pass a bound method as a child, but it may reference
+    // `this.state` or `this.props` (and thus needs to re-render on `setState`).
 
     const render = newProps.children;
 

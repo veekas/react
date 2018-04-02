@@ -31,7 +31,8 @@ type MeasurementPhase =
   | 'componentWillUpdate'
   | 'componentDidUpdate'
   | 'componentDidMount'
-  | 'getChildContext';
+  | 'getChildContext'
+  | 'getSnapshotBeforeUpdate';
 
 // Prefix measurements so that it's possible to filter them.
 // Longer prefixes are hard to read in DevTools.
@@ -247,13 +248,18 @@ export function startRequestCallbackTimer(): void {
   }
 }
 
-export function stopRequestCallbackTimer(didExpire: boolean): void {
+export function stopRequestCallbackTimer(
+  didExpire: boolean,
+  expirationTime: number,
+): void {
   if (enableUserTimingAPI) {
     if (supportsUserTiming) {
       isWaitingForCallback = false;
       const warning = didExpire ? 'React was blocked by main thread' : null;
       endMark(
-        '(Waiting for async callback...)',
+        `(Waiting for async callback... will force flush in ${
+          expirationTime
+        } ms)`,
         '(Waiting for async callback...)',
         warning,
       );
@@ -422,6 +428,31 @@ export function stopCommitTimer(): void {
     labelsInCurrentCommit.clear();
 
     endMark('(Committing Changes)', '(Committing Changes)', warning);
+  }
+}
+
+export function startCommitSnapshotEffectsTimer(): void {
+  if (enableUserTimingAPI) {
+    if (!supportsUserTiming) {
+      return;
+    }
+    effectCountInCurrentCommit = 0;
+    beginMark('(Committing Snapshot Effects)');
+  }
+}
+
+export function stopCommitSnapshotEffectsTimer(): void {
+  if (enableUserTimingAPI) {
+    if (!supportsUserTiming) {
+      return;
+    }
+    const count = effectCountInCurrentCommit;
+    effectCountInCurrentCommit = 0;
+    endMark(
+      `(Committing Snapshot Effects: ${count} Total)`,
+      '(Committing Snapshot Effects)',
+      null,
+    );
   }
 }
 
