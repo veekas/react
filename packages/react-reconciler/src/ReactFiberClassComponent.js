@@ -706,7 +706,7 @@ export default function(
         '%s: It is not recommended to assign props directly to state ' +
           "because updates to props won't be reflected in state. " +
           'In most cases, it is better to use props directly.',
-        getComponentName(workInProgress) || 'A component',
+        getComponentName(workInProgress) || 'Component',
       );
 
       if (workInProgress.mode & StrictMode) {
