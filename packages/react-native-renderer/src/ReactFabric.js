@@ -14,7 +14,6 @@ import './ReactFabricInjection';
 
 import * as ReactPortal from 'shared/ReactPortal';
 import * as ReactGenericBatching from 'events/ReactGenericBatching';
-import TouchHistoryMath from 'events/TouchHistoryMath';
 import ReactVersion from 'shared/ReactVersion';
 
 import NativeMethodsMixin from './NativeMethodsMixin';
@@ -25,11 +24,10 @@ import ReactFabricRenderer from './ReactFabricRenderer';
 import ReactNativePropRegistry from './ReactNativePropRegistry';
 import {getInspectorDataForViewTag} from './ReactNativeFiberInspector';
 import createReactNativeComponentClass from './createReactNativeComponentClass';
-import {injectFindHostInstanceFabric} from './findNodeHandle';
+import {injectFindHostInstance} from './findNodeHandle';
 import findNumericNodeHandle from './findNumericNodeHandle';
-import takeSnapshot from './takeSnapshot';
 
-injectFindHostInstanceFabric(ReactFabricRenderer.findHostInstance);
+injectFindHostInstance(ReactFabricRenderer.findHostInstance);
 
 ReactGenericBatching.injection.injectRenderer(ReactFabricRenderer);
 
@@ -78,8 +76,6 @@ const ReactFabric: ReactNativeType = {
 
   unstable_batchedUpdates: ReactGenericBatching.batchedUpdates,
 
-  flushSync: ReactFabricRenderer.flushSync,
-
   __SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED: {
     // Used as a mixin in many createClass-based components
     NativeMethodsMixin,
@@ -87,9 +83,7 @@ const ReactFabric: ReactNativeType = {
     ReactNativeBridgeEventPlugin, // requireNativeComponent
     ReactNativeComponentTree, // ScrollResponder
     ReactNativePropRegistry, // flattenStyle, Stylesheet
-    TouchHistoryMath, // PanResponder
     createReactNativeComponentClass, // RCTText, RCTView, ReactNativeART
-    takeSnapshot, // react-native-implementation
   },
 };
 

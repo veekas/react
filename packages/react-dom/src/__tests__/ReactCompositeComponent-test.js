@@ -225,6 +225,54 @@ describe('ReactCompositeComponent', () => {
     expect(inputProps.prop).not.toBeDefined();
   });
 
+  it('should warn about `forceUpdate` on not-yet-mounted components', () => {
+    class MyComponent extends React.Component {
+      constructor(props) {
+        super(props);
+        this.forceUpdate();
+      }
+      render() {
+        return <div />;
+      }
+    }
+
+    const container = document.createElement('div');
+    expect(() => ReactDOM.render(<MyComponent />, container)).toWarnDev(
+      "Warning: Can't call forceUpdate on a component that is not yet mounted. " +
+        'This is a no-op, but it might indicate a bug in your application. ' +
+        'Instead, assign to `this.state` directly or define a `state = {};` ' +
+        'class property with the desired state in the MyComponent component.',
+    );
+
+    // No additional warning should be recorded
+    const container2 = document.createElement('div');
+    ReactDOM.render(<MyComponent />, container2);
+  });
+
+  it('should warn about `setState` on not-yet-mounted components', () => {
+    class MyComponent extends React.Component {
+      constructor(props) {
+        super(props);
+        this.setState();
+      }
+      render() {
+        return <div />;
+      }
+    }
+
+    const container = document.createElement('div');
+    expect(() => ReactDOM.render(<MyComponent />, container)).toWarnDev(
+      "Warning: Can't call setState on a component that is not yet mounted. " +
+        'This is a no-op, but it might indicate a bug in your application. ' +
+        'Instead, assign to `this.state` directly or define a `state = {};` ' +
+        'class property with the desired state in the MyComponent component.',
+    );
+
+    // No additional warning should be recorded
+    const container2 = document.createElement('div');
+    ReactDOM.render(<MyComponent />, container2);
+  });
+
   it('should warn about `forceUpdate` on unmounted components', () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
