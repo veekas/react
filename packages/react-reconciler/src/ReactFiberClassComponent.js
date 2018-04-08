@@ -43,8 +43,8 @@ let didWarnAboutUndefinedDerivedState;
 let didWarnAboutUninitializedState;
 let didWarnAboutGetSnapshotBeforeUpdateWithoutDidUpdate;
 let didWarnAboutLegacyLifecyclesAndDerivedState;
-let warnOnInvalidCallback;
 let didWarnAboutDirectlyAssigningPropsToState;
+let warnOnInvalidCallback;
 
 if (__DEV__) {
   didWarnAboutStateAssignmentForComponent = new Set();
