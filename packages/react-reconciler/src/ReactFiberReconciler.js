@@ -20,12 +20,13 @@ import * as ReactInstanceMap from 'shared/ReactInstanceMap';
 import {HostComponent} from 'shared/ReactTypeOfWork';
 import emptyObject from 'fbjs/lib/emptyObject';
 import getComponentName from 'shared/getComponentName';
+import invariant from 'fbjs/lib/invariant';
 import warning from 'fbjs/lib/warning';
 
 import {createFiberRoot} from './ReactFiberRoot';
 import * as ReactFiberDevToolsHook from './ReactFiberDevToolsHook';
 import ReactFiberScheduler from './ReactFiberScheduler';
-import {insertUpdateIntoFiber} from './ReactFiberUpdateQueue';
+import {createUpdate, enqueueUpdate} from './ReactUpdateQueue';
 import ReactFiberInstrumentation from './ReactFiberInstrumentation';
 import ReactDebugCurrentFiber from './ReactDebugCurrentFiber';
 
@@ -264,7 +265,7 @@ export type Reconciler<C, I, TI> = {
   ): React$Component<any, any> | TI | I | null,
 
   // Use for findDOMNode/findHostNode. Legacy API.
-  findHostInstance(component: Fiber): I | TI | null,
+  findHostInstance(component: Object): I | TI | null,
 
   // Used internally for filtering out portals. Legacy API.
   findHostInstanceWithNoPortals(component: Fiber): I | TI | null,
@@ -338,28 +339,22 @@ export default function<T, P, I, TI, HI, PI, C, CC, CX, PL>(
       }
     }
 
+    const update = createUpdate(expirationTime);
+    update.payload = {children: element};
+
     callback = callback === undefined ? null : callback;
-    if (__DEV__) {
+    if (callback !== null) {
       warning(
-        callback === null || typeof callback === 'function',
+        typeof callback === 'function',
         'render(...): Expected the last optional `callback` argument to be a ' +
           'function. Instead received: %s.',
         callback,
       );
+      update.callback = callback;
     }
+    enqueueUpdate(current, update, expirationTime);
 
-    const update = {
-      expirationTime,
-      partialState: {element},
-      callback,
-      isReplace: false,
-      isForced: false,
-      capturedValue: null,
-      next: null,
-    };
-    insertUpdateIntoFiber(current, update);
     scheduleWork(current, expirationTime);
-
     return expirationTime;
   }
 
@@ -402,7 +397,19 @@ export default function<T, P, I, TI, HI, PI, C, CC, CX, PL>(
     );
   }
 
-  function findHostInstance(fiber: Fiber): PI | null {
+  function findHostInstance(component: Object): PI | null {
+    const fiber = ReactInstanceMap.get(component);
+    if (fiber === undefined) {
+      if (typeof component.render === 'function') {
+        invariant(false, 'Unable to find node on an unmounted component.');
+      } else {
+        invariant(
+          false,
+          'Argument appears to not be a ReactComponent. Keys: %s',
+          Object.keys(component),
+        );
+      }
+    }
     const hostFiber = findCurrentHostFiber(fiber);
     if (hostFiber === null) {
       return null;
@@ -508,7 +515,11 @@ export default function<T, P, I, TI, HI, PI, C, CC, CX, PL>(
       return ReactFiberDevToolsHook.injectInternals({
         ...devToolsConfig,
         findHostInstanceByFiber(fiber: Fiber): I | TI | null {
-          return findHostInstance(fiber);
+          const hostFiber = findCurrentHostFiber(fiber);
+          if (hostFiber === null) {
+            return null;
+          }
+          return hostFiber.stateNode;
         },
         findFiberByHostInstance(instance: I | TI): Fiber | null {
           if (!findFiberByHostInstance) {

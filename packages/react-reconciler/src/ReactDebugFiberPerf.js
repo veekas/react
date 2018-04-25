@@ -21,6 +21,7 @@ import {
   Fragment,
   ContextProvider,
   ContextConsumer,
+  Mode,
 } from 'shared/ReactTypeOfWork';
 
 type MeasurementPhase =
@@ -175,6 +176,7 @@ const shouldIgnoreFiber = (fiber: Fiber): boolean => {
     case Fragment:
     case ContextProvider:
     case ContextConsumer:
+    case Mode:
       return true;
     default:
       return false;
@@ -257,9 +259,7 @@ export function stopRequestCallbackTimer(
       isWaitingForCallback = false;
       const warning = didExpire ? 'React was blocked by main thread' : null;
       endMark(
-        `(Waiting for async callback... will force flush in ${
-          expirationTime
-        } ms)`,
+        `(Waiting for async callback... will force flush in ${expirationTime} ms)`,
         '(Waiting for async callback...)',
         warning,
       );
@@ -383,9 +383,7 @@ export function stopWorkLoopTimer(
         warning = 'A top-level update interrupted the previous render';
       } else {
         const componentName = getComponentName(interruptedBy) || 'Unknown';
-        warning = `An update to ${
-          componentName
-        } interrupted the previous render`;
+        warning = `An update to ${componentName} interrupted the previous render`;
       }
     } else if (commitCountInCurrentWorkLoop > 1) {
       warning = 'There were cascading updates';
