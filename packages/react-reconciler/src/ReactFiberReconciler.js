@@ -95,6 +95,11 @@ export type HostConfig<T, P, I, TI, HI, PI, C, CC, CX, PL> = {
 
   now(): number,
 
+  // Temporary workaround for scenario where multiple renderers concurrently
+  // render using the same context objects. E.g. React DOM and React ART on the
+  // same page. DOM is the primary renderer; ART is the secondary renderer.
+  isPrimaryRenderer: boolean,
+
   +hydration?: HydrationHostConfig<T, P, I, TI, HI, C, CX, PL>,
 
   +mutation?: MutableUpdatesHostConfig<T, P, I, TI, C, PL>,
@@ -317,7 +322,6 @@ export default function<T, P, I, TI, HI, PI, C, CC, CX, PL>(
   function scheduleRootUpdate(
     current: Fiber,
     element: ReactNodeList,
-    currentTime: ExpirationTime,
     expirationTime: ExpirationTime,
     callback: ?Function,
   ) {
@@ -340,7 +344,9 @@ export default function<T, P, I, TI, HI, PI, C, CC, CX, PL>(
     }
 
     const update = createUpdate(expirationTime);
-    update.payload = {children: element};
+    // Caution: React DevTools currently depends on this property
+    // being called "element".
+    update.payload = {element};
 
     callback = callback === undefined ? null : callback;
     if (callback !== null) {
@@ -362,7 +368,6 @@ export default function<T, P, I, TI, HI, PI, C, CC, CX, PL>(
     element: ReactNodeList,
     container: OpaqueRoot,
     parentComponent: ?React$Component<any, any>,
-    currentTime: ExpirationTime,
     expirationTime: ExpirationTime,
     callback: ?Function,
   ) {
@@ -388,13 +393,7 @@ export default function<T, P, I, TI, HI, PI, C, CC, CX, PL>(
       container.pendingContext = context;
     }
 
-    return scheduleRootUpdate(
-      current,
-      element,
-      currentTime,
-      expirationTime,
-      callback,
-    );
+    return scheduleRootUpdate(current, element, expirationTime, callback);
   }
 
   function findHostInstance(component: Object): PI | null {
@@ -434,12 +433,11 @@ export default function<T, P, I, TI, HI, PI, C, CC, CX, PL>(
     ): ExpirationTime {
       const current = container.current;
       const currentTime = recalculateCurrentTime();
-      const expirationTime = computeExpirationForFiber(current);
+      const expirationTime = computeExpirationForFiber(currentTime, current);
       return updateContainerAtExpirationTime(
         element,
         container,
         parentComponent,
-        currentTime,
         expirationTime,
         callback,
       );
@@ -452,12 +450,10 @@ export default function<T, P, I, TI, HI, PI, C, CC, CX, PL>(
       expirationTime,
       callback,
     ) {
-      const currentTime = recalculateCurrentTime();
       return updateContainerAtExpirationTime(
         element,
         container,
         parentComponent,
-        currentTime,
         expirationTime,
         callback,
       );

@@ -17,6 +17,7 @@ import {
   enableMutatingReconciler,
   enableNoopReconciler,
   enablePersistentReconciler,
+  enableProfilerTimer,
 } from 'shared/ReactFeatureFlags';
 import {
   ClassComponent,
@@ -24,14 +25,15 @@ import {
   HostComponent,
   HostText,
   HostPortal,
-  CallComponent,
+  Profiler,
+  TimeoutComponent,
 } from 'shared/ReactTypeOfWork';
 import ReactErrorUtils from 'shared/ReactErrorUtils';
 import {
-  Placement,
-  Update,
   ContentReset,
+  Placement,
   Snapshot,
+  Update,
 } from 'shared/ReactTypeOfSideEffect';
 import {commitUpdateQueue} from './ReactUpdateQueue';
 import invariant from 'fbjs/lib/invariant';
@@ -308,6 +310,14 @@ export default function<T, P, I, TI, HI, PI, C, CC, CX, PL>(
         // We have no life-cycles associated with portals.
         return;
       }
+      case Profiler: {
+        // We have no life-cycles associated with Profiler.
+        return;
+      }
+      case TimeoutComponent: {
+        // We have no life-cycles associated with Timeouts.
+        return;
+      }
       default: {
         invariant(
           false,
@@ -380,10 +390,6 @@ export default function<T, P, I, TI, HI, PI, C, CC, CX, PL>(
       }
       case HostComponent: {
         safelyDetachRef(current);
-        return;
-      }
-      case CallComponent: {
-        commitNestedUnmounts(current.stateNode);
         return;
       }
       case HostPortal: {
@@ -812,6 +818,25 @@ export default function<T, P, I, TI, HI, PI, C, CC, CX, PL>(
         return;
       }
       case HostRoot: {
+        return;
+      }
+      case Profiler: {
+        if (enableProfilerTimer) {
+          const onRender = finishedWork.memoizedProps.onRender;
+          onRender(
+            finishedWork.memoizedProps.id,
+            current === null ? 'mount' : 'update',
+            finishedWork.stateNode.duration,
+            finishedWork.treeBaseTime,
+          );
+
+          // Reset actualTime after successful commit.
+          // By default, we append to this time to account for errors and pauses.
+          finishedWork.stateNode.duration = 0;
+        }
+        return;
+      }
+      case TimeoutComponent: {
         return;
       }
       default: {
