@@ -15,10 +15,13 @@ import typeof * as FeatureFlagsShimType from './ReactFeatureFlags.native-fb';
 // Re-export dynamic flags from the fbsource version.
 export const {
   enableGetDerivedStateFromCatch,
+  enableSuspense,
   debugRenderPhaseSideEffects,
   debugRenderPhaseSideEffectsForStrictMode,
   warnAboutDeprecatedLifecycles,
   replayFailedUnitOfWorkWithInvokeGuardedCallback,
+  enableProfilerTimer,
+  fireGetDerivedStateFromPropsOnStateUpdates,
 } = require('ReactFeatureFlags');
 
 // The rest of the flags are static for better dead code elimination.

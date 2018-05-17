@@ -16,6 +16,7 @@ import {
   debugRenderPhaseSideEffects,
   debugRenderPhaseSideEffectsForStrictMode,
   warnAboutDeprecatedLifecycles,
+  fireGetDerivedStateFromPropsOnStateUpdates,
 } from 'shared/ReactFeatureFlags';
 import ReactStrictModeWarnings from './ReactStrictModeWarnings';
 import {isMounted} from 'react-reconciler/reflection';
@@ -31,6 +32,8 @@ import {StrictMode} from './ReactTypeOfMode';
 import {
   enqueueUpdate,
   processUpdateQueue,
+  checkHasForceUpdateAfterProcessing,
+  resetHasForceUpdateBeforeProcessing,
   createUpdate,
   ReplaceState,
   ForceUpdate,
@@ -47,6 +50,7 @@ let didWarnAboutLegacyLifecyclesAndDerivedState;
 let didWarnAboutDirectlyAssigningPropsToState;
 let didWarnAboutUndefinedDerivedState;
 let warnOnUndefinedDerivedState;
+let didWarnAboutDirectlyAssigningPropsToState;
 let warnOnInvalidCallback;
 
 if (__DEV__) {
@@ -56,6 +60,7 @@ if (__DEV__) {
   didWarnAboutLegacyLifecyclesAndDerivedState = new Set();
   didWarnAboutDirectlyAssigningPropsToState = new Set();
   didWarnAboutUndefinedDerivedState = new Set();
+  didWarnAboutDirectlyAssigningPropsToState = new Set();
 
   const didWarnOnInvalidCallback = new Set();
 
@@ -154,9 +159,13 @@ export function applyDerivedStateFromProps(
 export default function(
   legacyContext: LegacyContext,
   scheduleWork: (fiber: Fiber, expirationTime: ExpirationTime) => void,
-  computeExpirationForFiber: (fiber: Fiber) => ExpirationTime,
+  computeExpirationForFiber: (
+    currentTime: ExpirationTime,
+    fiber: Fiber,
+  ) => ExpirationTime,
   memoizeProps: (workInProgress: Fiber, props: any) => void,
   memoizeState: (workInProgress: Fiber, state: any) => void,
+  recalculateCurrentTime: () => ExpirationTime,
 ) {
   const {
     cacheContext,
@@ -170,7 +179,8 @@ export default function(
     isMounted,
     enqueueSetState(inst, payload, callback) {
       const fiber = ReactInstanceMap.get(inst);
-      const expirationTime = computeExpirationForFiber(fiber);
+      const currentTime = recalculateCurrentTime();
+      const expirationTime = computeExpirationForFiber(currentTime, fiber);
 
       const update = createUpdate(expirationTime);
       update.payload = payload;
@@ -186,7 +196,8 @@ export default function(
     },
     enqueueReplaceState(inst, payload, callback) {
       const fiber = ReactInstanceMap.get(inst);
-      const expirationTime = computeExpirationForFiber(fiber);
+      const currentTime = recalculateCurrentTime();
+      const expirationTime = computeExpirationForFiber(currentTime, fiber);
 
       const update = createUpdate(expirationTime);
       update.tag = ReplaceState;
@@ -204,7 +215,8 @@ export default function(
     },
     enqueueForceUpdate(inst, callback) {
       const fiber = ReactInstanceMap.get(inst);
-      const expirationTime = computeExpirationForFiber(fiber);
+      const currentTime = recalculateCurrentTime();
+      const expirationTime = computeExpirationForFiber(currentTime, fiber);
 
       const update = createUpdate(expirationTime);
       update.tag = ForceUpdate;
@@ -229,14 +241,6 @@ export default function(
     newState,
     newContext,
   ) {
-    if (
-      workInProgress.updateQueue !== null &&
-      workInProgress.updateQueue.hasForceUpdate
-    ) {
-      // If forceUpdate was called, disregard sCU.
-      return true;
-    }
-
     const instance = workInProgress.stateNode;
     const ctor = workInProgress.type;
     if (typeof instance.shouldComponentUpdate === 'function') {
@@ -797,6 +801,8 @@ export default function(
       }
     }
 
+    resetHasForceUpdateBeforeProcessing();
+
     const oldState = workInProgress.memoizedState;
     let newState = (instance.state = oldState);
     let updateQueue = workInProgress.updateQueue;
@@ -810,6 +816,19 @@ export default function(
       );
       newState = workInProgress.memoizedState;
     }
+    if (
+      oldProps === newProps &&
+      oldState === newState &&
+      !hasContextChanged() &&
+      !checkHasForceUpdateAfterProcessing()
+    ) {
+      // If an update was already in progress, we should schedule an Update
+      // effect even though we're bailing out, so that cWU/cDU are called.
+      if (typeof instance.componentDidMount === 'function') {
+        workInProgress.effectTag |= Update;
+      }
+      return false;
+    }
 
     if (typeof getDerivedStateFromProps === 'function') {
       applyDerivedStateFromProps(
@@ -820,31 +839,16 @@ export default function(
       newState = workInProgress.memoizedState;
     }
 
-    if (
-      oldProps === newProps &&
-      oldState === newState &&
-      !hasContextChanged() &&
-      !(
-        workInProgress.updateQueue !== null &&
-        workInProgress.updateQueue.hasForceUpdate
-      )
-    ) {
-      // If an update was already in progress, we should schedule an Update
-      // effect even though we're bailing out, so that cWU/cDU are called.
-      if (typeof instance.componentDidMount === 'function') {
-        workInProgress.effectTag |= Update;
-      }
-      return false;
-    }
-
-    const shouldUpdate = checkShouldComponentUpdate(
-      workInProgress,
-      oldProps,
-      newProps,
-      oldState,
-      newState,
-      newContext,
-    );
+    const shouldUpdate =
+      checkHasForceUpdateAfterProcessing() ||
+      checkShouldComponentUpdate(
+        workInProgress,
+        oldProps,
+        newProps,
+        oldState,
+        newState,
+        newContext,
+      );
 
     if (shouldUpdate) {
       // In order to support react-lifecycles-compat polyfilled components,
@@ -931,6 +935,8 @@ export default function(
       }
     }
 
+    resetHasForceUpdateBeforeProcessing();
+
     const oldState = workInProgress.memoizedState;
     let newState = (instance.state = oldState);
     let updateQueue = workInProgress.updateQueue;
@@ -945,23 +951,11 @@ export default function(
       newState = workInProgress.memoizedState;
     }
 
-    if (typeof getDerivedStateFromProps === 'function') {
-      applyDerivedStateFromProps(
-        workInProgress,
-        getDerivedStateFromProps,
-        newProps,
-      );
-      newState = workInProgress.memoizedState;
-    }
-
     if (
       oldProps === newProps &&
       oldState === newState &&
       !hasContextChanged() &&
-      !(
-        workInProgress.updateQueue !== null &&
-        workInProgress.updateQueue.hasForceUpdate
-      )
+      !checkHasForceUpdateAfterProcessing()
     ) {
       // If an update was already in progress, we should schedule an Update
       // effect even though we're bailing out, so that cWU/cDU are called.
@@ -984,14 +978,27 @@ export default function(
       return false;
     }
 
-    const shouldUpdate = checkShouldComponentUpdate(
-      workInProgress,
-      oldProps,
-      newProps,
-      oldState,
-      newState,
-      newContext,
-    );
+    if (typeof getDerivedStateFromProps === 'function') {
+      if (fireGetDerivedStateFromPropsOnStateUpdates || oldProps !== newProps) {
+        applyDerivedStateFromProps(
+          workInProgress,
+          getDerivedStateFromProps,
+          newProps,
+        );
+        newState = workInProgress.memoizedState;
+      }
+    }
+
+    const shouldUpdate =
+      checkHasForceUpdateAfterProcessing() ||
+      checkShouldComponentUpdate(
+        workInProgress,
+        oldProps,
+        newProps,
+        oldState,
+        newState,
+        newContext,
+      );
 
     if (shouldUpdate) {
       // In order to support react-lifecycles-compat polyfilled components,
