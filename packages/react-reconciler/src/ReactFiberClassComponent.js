@@ -59,6 +59,7 @@ if (__DEV__) {
   didWarnAboutLegacyLifecyclesAndDerivedState = new Set();
   didWarnAboutDirectlyAssigningPropsToState = new Set();
   didWarnAboutUndefinedDerivedState = new Set();
+  didWarnAboutDirectlyAssigningPropsToState = new Set();
 
   const didWarnOnInvalidCallback = new Set();
 
